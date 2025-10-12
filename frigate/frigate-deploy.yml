@@ -85,5 +85,5 @@
     - name: Start Frigate container
       community.docker.docker_compose_v2:
         project_src: "{{ frigate_dir }}"
-        state: present
+        state: restarted
       when: frigate_cam_username != ""
