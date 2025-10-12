@@ -11,6 +11,18 @@
       prompt: "Enter camera password for Frigate"
       default: ""
       private: yes
+    - name: aws_access_key_id
+      prompt: "Enter AWS Access Key ID"
+      default: ""
+      private: yes
+    - name: aws_secret_access_key
+      prompt: "Enter AWS Secret Access Key"
+      default: ""
+      private: yes
+    - name: s3_bucket
+      prompt: "Enter S3 bucket name"
+      default: "cam-rec-n1"
+      private: no
   vars:
     frigate_dir: "/opt/frigate"
   tasks:
@@ -60,6 +72,10 @@
         content: |
           FRIGATE_CAM_USERNAME={{ frigate_cam_username }}
           FRIGATE_CAM_PASSWORD={{ frigate_cam_password }}
+          AWS_ACCESS_KEY_ID={{ aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY={{ aws_secret_access_key }}
+          S3_BUCKET={{ s3_bucket }}
+          AWS_REGION=ap-south-1
         dest: "{{ frigate_dir }}/.env"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
