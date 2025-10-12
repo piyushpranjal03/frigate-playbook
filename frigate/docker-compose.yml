@@ -38,6 +38,6 @@ services:
       - ./storage:/media/frigate:ro
       - ./logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
-    command: sh -c "pip install uv && uv sync && uv run main.py"
+    command: sh -c "pip install apscheduler boto3 requests pytz tenacity && python main.py"
     depends_on:
       - frigate
