@@ -42,7 +42,7 @@
       args:
         creates: /etc/systemd/system/cloudflared.service
 
-    - name: Skip service installation - no token provided
+    - name: Cloudflared service not installed
       debug:
         msg: "Cloudflare service not installed - no token provided"
       when: cloudflare_token == ""
