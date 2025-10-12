@@ -113,16 +113,24 @@
         groups: docker
         append: yes
 
+    - name: Enable cgroup memory support for Docker
+      lineinfile:
+        path: /boot/cmdline.txt
+        regexp: '^((?:(?!cgroup_enable=memory).)*?)(\s+)?$'
+        line: '\1 cgroup_enable=memory cgroup_memory=1'
+        backrefs: yes
+      register: cmdline_updated
+
     - name: Check if reboot required
       stat:
         path: /var/run/reboot-required
       register: reboot_required
 
-    - name: Reboot if required
+    - name: Reboot if required or cgroup updated
       reboot:
-        msg: "Reboot initiated by Ansible for kernel updates"
+        msg: "Reboot initiated by Ansible for kernel updates or cgroup changes"
         connect_timeout: 5
         reboot_timeout: 300
         pre_reboot_delay: 0
         post_reboot_delay: 30
-      when: reboot_required.stat.exists
+      when: reboot_required.stat.exists or cmdline_updated.changed
