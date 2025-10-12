@@ -140,7 +140,7 @@ def get_past_ten_minute_window():
     """Get epoch times for the past 10 minutes with 2-minute delay"""
     try:
         ist = pytz.timezone('Asia/Kolkata')
-        current_time = datetime.now(ist) - timedelta(minutes=2)  # 2-minute delay
+        current_time = datetime.now(ist) - timedelta(minutes=12)
 
         # Round down to nearest 10-minute boundary
         minute = current_time.minute
