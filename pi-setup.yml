@@ -1,0 +1,128 @@
+---
+- name: Raspberry Pi Basic Setup
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+    - name: Install unattended-upgrades
+      apt:
+        name: unattended-upgrades
+        state: present
+
+    - name: Enable automatic security updates
+      debconf:
+        name: unattended-upgrades
+        question: unattended-upgrades/enable_auto_updates
+        value: 'true'
+        vtype: boolean
+
+    - name: Install htop and vim
+      apt:
+        name:
+          - htop
+          - vim
+        state: present
+
+    - name: Remove conflicting Docker packages
+      apt:
+        name:
+          - docker.io
+          - docker-doc
+          - docker-compose
+          - podman-docker
+          - containerd
+          - runc
+        state: absent
+
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+
+    - name: Create Docker keyring directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Docker GPG key
+      shell: curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+      args:
+        creates: /etc/apt/keyrings/docker.asc
+
+    - name: Set Docker GPG key permissions
+      file:
+        path: /etc/apt/keyrings/docker.asc
+        mode: 'a+r'
+
+    - name: Add Docker repository
+      shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+    - name: Update apt cache after adding Docker repo
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Verify Docker installation
+      shell: docker --version
+      register: docker_version
+
+    - name: Display Docker version
+      debug:
+        msg: "Docker installed: {{ docker_version.stdout }}"
+
+    - name: Test Docker with hello-world
+      shell: docker run --rm hello-world
+      register: docker_test
+
+    - name: Display Docker test result
+      debug:
+        msg: "Docker test successful: {{ docker_test.stdout }}"
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Check if reboot required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Reboot if required
+      reboot:
+        msg: "Reboot initiated by Ansible for kernel updates"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+      when: reboot_required.stat.exists

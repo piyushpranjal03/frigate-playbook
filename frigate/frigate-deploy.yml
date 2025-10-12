@@ -1,0 +1,73 @@
+---
+- name: Deploy Frigate NVR
+  hosts: all
+  become: yes
+  vars_prompt:
+    - name: frigate_cam_username
+      prompt: "Enter camera username for Frigate"
+      default: ""
+      private: no
+    - name: frigate_cam_password
+      prompt: "Enter camera password for Frigate"
+      default: ""
+      private: yes
+  vars:
+    frigate_dir: "/opt/frigate"
+  tasks:
+    - name: Create frigate directory structure
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      loop:
+        - "{{ frigate_dir }}"
+        - "{{ frigate_dir }}/config"
+        - "{{ frigate_dir }}/logs"
+        - "{{ frigate_dir }}/scripts"
+      when: frigate_cam_username != ""
+
+    - name: Copy frigate config file
+      copy:
+        src: config.yml
+        dest: "{{ frigate_dir }}/config/config.yml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+      when: frigate_cam_username != ""
+
+    - name: Copy docker-compose file
+      copy:
+        src: docker-compose.yml
+        dest: "{{ frigate_dir }}/docker-compose.yml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+      when: frigate_cam_username != ""
+
+    - name: Copy scripts directory
+      copy:
+        src: scripts/
+        dest: "{{ frigate_dir }}/scripts/"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+      when: frigate_cam_username != ""
+
+    - name: Create Frigate .env file
+      copy:
+        content: |
+          FRIGATE_CAM_USERNAME={{ frigate_cam_username }}
+          FRIGATE_CAM_PASSWORD={{ frigate_cam_password }}
+        dest: "{{ frigate_dir }}/.env"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+      when: frigate_cam_username != ""
+
+    - name: Start Frigate container
+      community.docker.docker_compose_v2:
+        project_src: "{{ frigate_dir }}"
+        state: present
+      when: frigate_cam_username != ""

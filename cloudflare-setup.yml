@@ -1,0 +1,48 @@
+---
+- name: Install Cloudflare Tunnel
+  hosts: all
+  become: yes
+  gather_facts: no
+  vars_prompt:
+    - name: cloudflare_token
+      prompt: "Enter your Cloudflare tunnel token (leave empty to skip)"
+      default: ""
+      private: yes
+  tasks:
+    - name: Create cloudflare keyring directory
+      file:
+        path: /usr/share/keyrings
+        state: directory
+        mode: '0755'
+      when: cloudflare_token != ""
+
+    - name: Add Cloudflare GPG key
+      shell: curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+      args:
+        creates: /usr/share/keyrings/cloudflare-main.gpg
+      when: cloudflare_token != ""
+
+    - name: Add Cloudflare repository
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main"
+        filename: cloudflared
+        state: present
+      when: cloudflare_token != ""
+
+    - name: Install cloudflared
+      apt:
+        name: cloudflared
+        state: present
+        update_cache: yes
+      when: cloudflare_token != ""
+
+    - name: Install cloudflared service
+      shell: cloudflared service install {{ cloudflare_token }}
+      when: cloudflare_token != ""
+      args:
+        creates: /etc/systemd/system/cloudflared.service
+
+    - name: Skip service installation - no token provided
+      debug:
+        msg: "Cloudflare service not installed - no token provided"
+      when: cloudflare_token == ""

@@ -1,0 +1,20 @@
+---
+# Master playbook - use extra vars for control
+# Usage: ansible-playbook playbook.yml -e "install_cloudflare=yes deploy_frigate=yes"
+- name: Main deployment control
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Show deployment plan
+      debug:
+        msg: |
+          Deployment Plan:
+          - Pi Setup: Always runs
+          - Cloudflare: {{ install_cloudflare | default('no') }}
+          - Frigate: {{ deploy_frigate | default('no') }}
+
+- import_playbook: pi-setup.yml
+- import_playbook: cloudflare-setup.yml
+  when: install_cloudflare | default('no') | bool
+- import_playbook: frigate/frigate-deploy.yml
+  when: deploy_frigate | default('no') | bool

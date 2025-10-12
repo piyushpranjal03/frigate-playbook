@@ -1,0 +1,119 @@
+mqtt:
+  enabled: false
+
+audio:
+  enabled: true
+
+logger:
+  default: error
+
+detect:
+  enabled: false
+
+
+ffmpeg:
+  hwaccel_args: preset-rpi-64-h264
+
+go2rtc:
+  log:
+    level: info
+  streams:
+    roadside:
+      - rtsp://{FRIGATE_CAM_USERNAME}:{FRIGATE_CAM_PASSWORD}@192.168.18.102:554/stream1
+      - ffmpeg:roadside#audio=aac
+
+    roadside_sub:
+      - rtsp://{FRIGATE_CAM_USERNAME}:{FRIGATE_CAM_PASSWORD}@192.168.18.102:554/stream2
+
+    stairs:
+      - rtsp://{FRIGATE_CAM_USERNAME}:{FRIGATE_CAM_PASSWORD}@192.168.18.101:554/stream1
+      - ffmpeg:stairs#audio=aac
+
+    stairs_sub:
+      - rtsp://{FRIGATE_CAM_USERNAME}:{FRIGATE_CAM_PASSWORD}@192.168.18.101:554/stream2
+
+  webrtc:
+    candidates:
+      - localhost:8555
+      - stun:8555
+
+cameras:
+  roadside:
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-aac
+      inputs:
+        - path: rtsp://127.0.0.1:8554/roadside
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+            - audio
+        - path: rtsp://127.0.0.1:8554/roadside_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    live:
+      streams:
+        Roadside: roadside
+
+    zones:
+      front_gate:
+        coordinates: 0,0,0.086,0,0.122,0.267,0.183,0.253,0.485,0.999,0.002,0.997
+        loitering_time: 0
+        objects: person
+        inertia: 3
+    review:
+      alerts:
+        required_zones: front_gate
+      detections:
+        required_zones: front_gate
+    motion:
+      threshold: 50
+      contour_area: 10
+      improve_contrast: true
+  stairs:
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-aac
+      inputs:
+        - path: rtsp://127.0.0.1:8554/stairs
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+            - audio
+        - path: rtsp://127.0.0.1:8554/stairs_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    live:
+      streams:
+        Stairs: stairs
+
+    zones:
+      both_stairs:
+        coordinates: 0,0,0.998,0.006,0.991,0.309,0.469,0.302,0.431,0.329,0.699,1,0,1
+        loitering_time: 0
+    review:
+      alerts:
+        required_zones: both_stairs
+      detections:
+        required_zones: both_stairs
+    motion:
+      threshold: 50
+      contour_area: 10
+      improve_contrast: true
+
+
+record:
+  enabled: true
+  retain:
+    days: 1
+    mode: all
+
+camera_groups:
+  Home:
+    order: 1
+    icon: LuBuilding
+    cameras:
+      - roadside
+      - stairs
