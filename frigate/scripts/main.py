@@ -118,12 +118,16 @@ def upload_to_s3(local_file_path, s3_key):
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=10, max=10))
-def get_finished_exports():
-    """Get list of finished exports from Frigate"""
+def get_all_exports():
+    """Get all exports from Frigate"""
     response = requests.get(f"{FRIGATE_HOST}/api/exports", timeout=30)
     response.raise_for_status()
+    return response.json()
 
-    exports = response.json()
+
+def get_finished_exports():
+    """Get list of finished exports from Frigate"""
+    exports = get_all_exports()
     return [exp for exp in exports if not exp.get('in_progress')]
 
 
@@ -218,6 +222,63 @@ def upload_and_cleanup():
         logger.error(f"Error processing exports: {e}")
 
 
+def handle_stuck_exports():
+    """Handle exports stuck in progress for 2+ hours"""
+    try:
+        exports = get_all_exports()
+        current_time = datetime.now()
+        stuck_exports = []
+        
+        for export in exports:
+            if not export.get('in_progress'):
+                continue
+                
+            # Use the date field (epoch timestamp) from API response
+            export_date = datetime.fromtimestamp(export.get('date', 0))
+            
+            if (current_time - export_date).total_seconds() > 7200:  # 2 hours
+                stuck_exports.append(export)
+        
+        if not stuck_exports:
+            return
+            
+        logger.info(f"Found {len(stuck_exports)} stuck exports (2+ hours old)")
+        
+        for export in stuck_exports:
+            try:
+                event_id = export.get('id')
+                camera = export.get('camera')
+                filename = os.path.basename(export.get('video_path', ''))
+                
+                # Extract time range from filename: camera_YYYYMMDD_HHMMSS-YYYYMMDD_HHMMSS_id.mp4
+                parts = filename.split('_')
+                if len(parts) >= 4:
+                    start_date = parts[1]  # 20251013
+                    start_time = parts[2].split('-')[0]  # 075000
+                    end_date = parts[2].split('-')[1]  # 20251013
+                    end_time = parts[3]  # 080000
+                    
+                    start_datetime = datetime.strptime(start_date + start_time, '%Y%m%d%H%M%S')
+                    end_datetime = datetime.strptime(end_date + end_time, '%Y%m%d%H%M%S')
+                    
+                    start_epoch = int(start_datetime.timestamp())
+                    end_epoch = int(end_datetime.timestamp())
+                        
+                    # Re-submit export request first
+                    export_video(camera, start_epoch, end_epoch)
+                    logger.info(f"Re-submitted export for {camera}: {start_epoch} to {end_epoch}")
+
+                    # Only delete if re-submission was successful
+                    delete_export(event_id)
+                    logger.info(f"Deleted stuck export {event_id}")
+
+            except Exception as e:
+                logger.error(f"Failed to handle stuck export {export.get('id')}: {e}")
+                
+    except Exception as e:
+        logger.error(f"Error handling stuck exports: {e}")
+
+
 def export():
     """Main export function"""
     try:
@@ -257,7 +318,10 @@ def main():
     # Upload job - run every 5 minutes
     scheduler.add_job(upload_and_cleanup, 'cron', minute='*/5', second=0, max_instances=1)
 
-    logger.info("Scheduler started - Export: every 12 minutes, Upload: every 5 minutes")
+    # Stuck exports cleanup - run every 2 hours
+    scheduler.add_job(handle_stuck_exports, 'cron', hour='*/2', minute=0, second=0, max_instances=1)
+
+    logger.info("Scheduler started - Export: every 12 minutes, Upload: every 5 minutes, Stuck cleanup: every 2 hours")
     try:
         scheduler.start()
     except KeyboardInterrupt:
