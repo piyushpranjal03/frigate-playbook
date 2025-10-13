@@ -69,7 +69,7 @@ ansible-playbook pi-setup.yml --ask-pass --ask-become-pass
 ansible-playbook cloudflare-setup.yml --ask-pass --ask-become-pass
 
 # Frigate only (after pi-setup)
-ansible-playbook frigate-deploy.yml --ask-pass --ask-become-pass
+ansible-playbook frigate/frigate-deploy.yml --ask-pass --ask-become-pass
 ```
 
 ## Requirements
