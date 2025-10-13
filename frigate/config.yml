@@ -107,7 +107,7 @@ cameras:
 record:
   enabled: true
   retain:
-    days: 1
+    days: 10
     mode: all
 
 camera_groups:
