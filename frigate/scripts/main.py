@@ -1,5 +1,6 @@
 import logging
 import os
+import socket
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -29,6 +30,16 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger('FRIGATE_EXPORT')
+
+
+def check_internet_connection():
+    """Check if internet connection is available"""
+    try:
+        sock = socket.create_connection(("s3.amazonaws.com", 443), timeout=5)
+        sock.close()
+        return True
+    except (socket.error, socket.timeout):
+        return False
 
 
 def get_s3_path(video_path):
@@ -190,6 +201,11 @@ def export_video(camera, start_time_epoch, end_time_epoch):
 def upload_and_cleanup():
     """Process all finished exports"""
     try:
+        # Check internet connection before processing
+        if not check_internet_connection():
+            logger.warning("No internet connection detected. Skipping upload cycle.")
+            return
+            
         finished_exports = get_finished_exports()
         logger.info(f"Found {len(finished_exports)} finished exports")
 
