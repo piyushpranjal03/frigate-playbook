@@ -223,7 +223,7 @@ def upload_and_cleanup():
 
 
 def handle_stuck_exports():
-    """Handle exports stuck in progress for 2+ hours"""
+    """Handle exports stuck in progress for 30+ minutes"""
     try:
         exports = get_all_exports()
         current_time = datetime.now()
@@ -236,13 +236,13 @@ def handle_stuck_exports():
             # Use the date field (epoch timestamp) from API response
             export_date = datetime.fromtimestamp(export.get('date', 0))
             
-            if (current_time - export_date).total_seconds() > 7200:  # 2 hours
+            if (current_time - export_date).total_seconds() > 1800:  # 30 minutes
                 stuck_exports.append(export)
         
         if not stuck_exports:
             return
             
-        logger.info(f"Found {len(stuck_exports)} stuck exports (2+ hours old)")
+        logger.info(f"Found {len(stuck_exports)} stuck exports (30+ minutes old)")
         
         for export in stuck_exports:
             try:
@@ -318,10 +318,10 @@ def main():
     # Upload job - run every 5 minutes
     scheduler.add_job(upload_and_cleanup, 'cron', minute='*/5', second=0, max_instances=1)
 
-    # Stuck exports cleanup - run every 2 hours
-    scheduler.add_job(handle_stuck_exports, 'cron', hour='*/2', minute=0, second=0, max_instances=1)
+    # Stuck exports cleanup - run every 30 minutes
+    scheduler.add_job(handle_stuck_exports, 'cron', minute='*/30', second=0, max_instances=1)
 
-    logger.info("Scheduler started - Export: every 12 minutes, Upload: every 5 minutes, Stuck cleanup: every 2 hours")
+    logger.info("Scheduler started - Export: every 12 minutes, Upload: every 5 minutes, Stuck cleanup: every 30 minutes")
     try:
         scheduler.start()
     except KeyboardInterrupt:
