@@ -12,7 +12,8 @@ Automates Frigate NVR Docker deployment on Raspberry Pi with interactive setup a
 ## Quick Start
 
 1. Update `inventory.yml` with your Pi's IP address and username
-2. Choose your deployment options:
+2. Configure `frigate/config.yml` with your camera settings and detection zones
+3. Choose your deployment options:
 
 ### Full Deployment (Pi + Cloudflare + Frigate)
 ```bash
