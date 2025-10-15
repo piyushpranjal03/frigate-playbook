@@ -12,7 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 # Configuration from environment variables
 FRIGATE_HOST = "http://frigate:5000"
-S3_BUCKET = os.getenv("S3_BUCKET", "cam-rec-n1")
+S3_BUCKET = os.getenv("S3_BUCKET")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")

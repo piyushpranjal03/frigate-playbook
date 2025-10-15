@@ -21,7 +21,7 @@
       private: yes
     - name: s3_bucket
       prompt: "Enter S3 bucket name"
-      default: "cam-rec-n1"
+      default: ""
       private: no
   vars:
     frigate_dir: "/opt/frigate"
