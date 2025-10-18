@@ -142,11 +142,19 @@
         path: /var/run/reboot-required
       register: reboot_required
 
-    - name: Reboot if required or cgroup updated
+    - name: Set GPU memory to 128MB for hardware acceleration
+      lineinfile:
+        path: /boot/firmware/config.txt
+        regexp: '^gpu_mem='
+        line: 'gpu_mem=128'
+        create: yes
+      register: gpu_mem_updated
+
+    - name: Reboot if required or cgroup/GPU updated
       reboot:
         msg: "Reboot initiated by Ansible for kernel updates or cgroup changes"
         connect_timeout: 5
         reboot_timeout: 300
         pre_reboot_delay: 0
         post_reboot_delay: 30
-      when: reboot_required.stat.exists or cmdline_updated.changed
+      when: reboot_required.stat.exists or cmdline_updated.changed or gpu_mem_updated.changed

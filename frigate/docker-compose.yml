@@ -7,6 +7,8 @@ services:
     image: ghcr.io/blakeblackshear/frigate:0.16.1
     env_file:
       - .env
+    devices:
+      - /dev/video11:/dev/video11
     volumes:
       - ./config:/config
       - ./storage:/media/frigate
