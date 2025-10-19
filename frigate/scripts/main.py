@@ -1,6 +1,7 @@
 import logging
 import os
 import socket
+from contextlib import closing
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -31,13 +32,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger('FRIGATE_EXPORT')
 
+# Global clients to prevent memory leaks
+s3_client = None
+session = requests.Session()
+
 
 def check_internet_connection():
     """Check if internet connection is available"""
     try:
-        sock = socket.create_connection(("s3.amazonaws.com", 443), timeout=5)
-        sock.close()
-        return True
+        with closing(socket.create_connection(("s3.amazonaws.com", 443), timeout=5)) as sock:
+            return True
     except (socket.error, socket.timeout):
         return False
 
@@ -92,18 +96,21 @@ def get_s3_path(video_path):
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def upload_to_s3(local_file_path, s3_key):
     """Upload file to S3 with Glacier Instant Retrieval and retry logic"""
+    global s3_client
+    
+    if s3_client is None:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name=AWS_REGION
+        )
+    
     config = TransferConfig(
         multipart_threshold=100 * 1024 * 1024,  # 100MB
         multipart_chunksize=100 * 1024 * 1024,  # 100MB
         use_threads=True,
         max_concurrency=2,
-    )
-
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
     )
 
     try:
@@ -131,7 +138,7 @@ def upload_to_s3(local_file_path, s3_key):
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=10, max=10))
 def get_all_exports():
     """Get all exports from Frigate"""
-    response = requests.get(f"{FRIGATE_HOST}/api/exports", timeout=30)
+    response = session.get(f"{FRIGATE_HOST}/api/exports", timeout=30)
     response.raise_for_status()
     return response.json()
 
@@ -145,7 +152,7 @@ def get_finished_exports():
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=10, max=10))
 def delete_export(event_id):
     """Delete export from Frigate"""
-    response = requests.delete(f"{FRIGATE_HOST}/api/export/{event_id}", timeout=30)
+    response = session.delete(f"{FRIGATE_HOST}/api/export/{event_id}", timeout=30)
     response.raise_for_status()
     logger.info(f"Successfully deleted export {event_id}")
     return True
@@ -188,7 +195,7 @@ def export_video(camera, start_time_epoch, end_time_epoch):
         'Accept': 'application/json'
     }
 
-    response = requests.post(
+    response = session.post(
         url=url,
         json=payload,
         headers=headers,
@@ -342,6 +349,8 @@ def main():
         scheduler.start()
     except KeyboardInterrupt:
         logger.info("Scheduler stopped")
+    finally:
+        session.close()
 
 
 if __name__ == "__main__":
