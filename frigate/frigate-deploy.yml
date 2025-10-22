@@ -82,8 +82,17 @@
         mode: '0600'
       when: frigate_cam_username != ""
 
-    - name: Start Frigate container
+    - name: Pull latest images and recreate Frigate containers
       community.docker.docker_compose_v2:
         project_src: "{{ frigate_dir }}"
-        state: restarted
+        pull: always
+        recreate: always
+        state: present
+      when: frigate_cam_username != ""
+
+    - name: Clean up dangling Docker images
+      community.docker.docker_prune:
+        images: yes
+        images_filters:
+          dangling: true
       when: frigate_cam_username != ""
