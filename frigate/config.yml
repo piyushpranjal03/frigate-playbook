@@ -11,7 +11,7 @@ detect:
   enabled: false
 
 motion:
-  enabled: False
+  enabled: false
 
 
 ffmpeg:
@@ -59,8 +59,12 @@ cameras:
       streams:
         Roadside: roadside
 
-    zones: { }
-    review: { }
+    zones:
+      Main_Gate:
+        coordinates: 0.153,0.237,0.219,0.197,0.522,0.999,0.203,1,0.081,0.292
+        loitering_time: 0
+        objects: person
+    review: {}
     motion:
       threshold: 50
       contour_area: 10
@@ -83,8 +87,12 @@ cameras:
       streams:
         Stairs: stairs
 
-    zones: { }
-    review: { }
+    zones:
+      Stairs:
+        coordinates: 1,0,1,0.365,0.5,0.368,0.442,0.413,0.674,1,0,1,0,0
+        loitering_time: 0
+        objects: person
+    review: {}
     motion:
       threshold: 50
       contour_area: 10
@@ -92,9 +100,9 @@ cameras:
 
 review:
   alerts:
-    enabled: False
+    enabled: false
   detections:
-    enabled: False
+    enabled: true
 
 record:
   enabled: true
