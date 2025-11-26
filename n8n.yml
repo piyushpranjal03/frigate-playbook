@@ -1,0 +1,180 @@
+---
+- name: Install n8n on Raspberry Pi 4B
+  hosts: all
+  become: yes
+  vars:
+    nodejs_version: "20"
+    # Use 'latest' instead of hardcoded version to get current stable
+    n8n_version: "latest"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - ca-certificates
+          - gnupg
+          - build-essential
+          - python3-pip
+        state: present
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download and add NodeSource GPG key (modern method)
+      get_url:
+        url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+        dest: /tmp/nodesource.gpg.key
+        mode: '0644'
+
+    - name: Add NodeSource GPG key to keyring
+      shell: |
+        gpg --dearmor < /tmp/nodesource.gpg.key > /etc/apt/keyrings/nodesource.gpg
+        chmod 644 /etc/apt/keyrings/nodesource.gpg
+      args:
+        creates: /etc/apt/keyrings/nodesource.gpg
+
+    - name: Add NodeSource repository (modern method)
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_version }}.x nodistro main"
+        state: present
+        filename: nodesource
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    - name: Verify Node.js version meets requirements (20.19 to 24.x)
+      shell: |
+        node_version=$(node --version | sed 's/v//')
+        major_version=$(echo $node_version | cut -d. -f1)
+        
+        if [ $major_version -eq 20 ] && [ $(echo "$node_version 20.19" | awk '{print ($1 >= $2)}') = 1 ]; then
+          echo "Node.js $node_version is compatible (20.19+)"
+        elif [ $major_version -ge 21 ] && [ $major_version -le 24 ]; then
+          echo "Node.js $node_version is compatible (21-24.x)"
+        else
+          echo "Node.js $node_version is not compatible. Need version 20.19-24.x"
+          exit 1
+        fi
+      args:
+        executable: /bin/bash
+      register: node_check
+      changed_when: false
+
+    - name: Display Node.js version check
+      debug:
+        msg: "{{ node_check.stdout }}"
+
+    - name: Create n8n user
+      user:
+        name: n8n
+        system: yes
+        shell: /bin/false
+        home: /var/lib/n8n
+        create_home: yes
+
+    - name: Set ownership of n8n home directory
+      file:
+        path: /var/lib/n8n
+        owner: n8n
+        group: n8n
+        mode: '0755'
+        state: directory
+
+    - name: Install n8n globally (latest stable version)
+      npm:
+        name: "n8n"
+        global: yes
+        state: latest
+
+    - name: Find n8n binary path
+      shell: which n8n
+      register: n8n_path
+      changed_when: false
+
+    - name: Create n8n systemd service
+      copy:
+        content: |
+          [Unit]
+          Description=n8n workflow automation
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=simple
+          User=n8n
+          Group=n8n
+          ExecStart={{ n8n_path.stdout }} start
+          Restart=always
+          RestartSec=10
+          Environment=N8N_HOST=0.0.0.0
+          Environment=N8N_PORT=5678
+          Environment=N8N_USER_FOLDER=/var/lib/n8n
+          Environment=N8N_SECURE_COOKIE=false
+          Environment=NODE_ENV=production
+          WorkingDirectory=/var/lib/n8n
+          StandardOutput=journal
+          StandardError=journal
+          SyslogIdentifier=n8n
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/n8n.service
+        mode: '0644'
+      notify:
+        - reload systemd
+        - restart n8n
+
+    - name: Open firewall port 5678 (if ufw is active)
+      ufw:
+        rule: allow
+        port: '5678'
+        proto: tcp
+      ignore_errors: yes
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart n8n
+      systemd:
+        name: n8n
+        state: restarted
+
+  post_tasks:
+    - name: Enable and start n8n service
+      systemd:
+        name: n8n
+        enabled: yes
+        state: started
+
+    - name: Wait for n8n to start
+      wait_for:
+        port: 5678
+        host: 0.0.0.0
+        timeout: 60
+
+    - name: Display service status
+      command: systemctl status n8n --no-pager -l
+      register: service_status
+      changed_when: false
+
+    - name: Show n8n access information
+      debug:
+        msg:
+          - "n8n is now running on your Raspberry Pi"
+          - "Access it at: http://{{ ansible_default_ipv4.address }}:5678"
+          - "Local access: http://localhost:5678"
+          - "Service is {{ 'active' if 'active (running)' in service_status.stdout else 'inactive' }}"
