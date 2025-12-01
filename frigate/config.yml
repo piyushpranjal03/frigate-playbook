@@ -10,10 +10,6 @@ logger:
 detect:
   enabled: false
 
-motion:
-  enabled: false
-
-
 ffmpeg:
   hwaccel_args: preset-rpi-64-h264
 
@@ -64,7 +60,9 @@ cameras:
         coordinates: 0.153,0.237,0.219,0.197,0.522,0.999,0.203,1,0.081,0.292
         loitering_time: 0
         objects: person
-    review: {}
+    review:
+      detections:
+        required_zones: Main_Gate
     motion:
       threshold: 50
       contour_area: 10
@@ -92,7 +90,9 @@ cameras:
         coordinates: 1,0,1,0.365,0.5,0.368,0.442,0.413,0.674,1,0,1,0,0
         loitering_time: 0
         objects: person
-    review: {}
+    review:
+      detections:
+        required_zones: Stairs
     motion:
       threshold: 50
       contour_area: 10
