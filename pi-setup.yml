@@ -137,6 +137,21 @@
       register: cmdline_updated
       when: cgroup_check.rc != 0
 
+    - name: Check if HDMI resolution is already configured
+      shell: grep -q "video=HDMI-A-1:1920x1080M@60" {{ cmdline_path }}
+      register: hdmi_check
+      failed_when: false
+      changed_when: false
+
+    - name: Set HDMI resolution to 1920x1080@60Hz
+      lineinfile:
+        path: "{{ cmdline_path }}"
+        regexp: '^((?:(?!video=HDMI-A-1:1920x1080M@60).)*?)(\s+)?$'
+        line: '\1 video=HDMI-A-1:1920x1080M@60'
+        backrefs: yes
+      register: hdmi_updated
+      when: hdmi_check.rc != 0
+
     - name: Check if reboot required
       stat:
         path: /var/run/reboot-required
@@ -150,11 +165,11 @@
         create: yes
       register: gpu_mem_updated
 
-    - name: Reboot if required or cgroup/GPU updated
+    - name: Reboot if required or cgroup/GPU/HDMI updated
       reboot:
-        msg: "Reboot initiated by Ansible for kernel updates or cgroup changes"
+        msg: "Reboot initiated by Ansible for kernel updates or configuration changes"
         connect_timeout: 5
         reboot_timeout: 300
         pre_reboot_delay: 0
         post_reboot_delay: 30
-      when: reboot_required.stat.exists or cmdline_updated.changed or gpu_mem_updated.changed
+      when: reboot_required.stat.exists or cmdline_updated.changed or gpu_mem_updated.changed or hdmi_updated.changed
